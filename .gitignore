@@ -2,6 +2,7 @@
 /.claude
 /PORTING_NOTES.md
 /SESSION_RESUME.md
+/Context.md
 
 # Build outputs
 /DVRouteManager/bin/
