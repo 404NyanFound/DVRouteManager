@@ -286,6 +286,11 @@ namespace DVRouteManager
             float curveTotalDistance = 0.0f;
 
             BezierPoint[] points = current.curve.GetAnchorPoints();
+            
+            if (points == null || points.Length < 2)
+            {
+                return 50f; // fallback average speed
+            }
 
             BezierPoint p1 = points[0];
             BezierPoint p2 = points[1];
@@ -304,6 +309,7 @@ namespace DVRouteManager
                 while (trackPos > (curveTotalDistance + curveBlockLength))
                 {
                     curveTotalDistance += curveBlockLength;
+                    if (curvePointIndex + 1 >= points.Length) break;
                     p1 = points[curvePointIndex];
                     p2 = points[curvePointIndex + 1];
                     curvePointIndex++;

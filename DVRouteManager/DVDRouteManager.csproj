@@ -12,7 +12,7 @@
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
-    <DVInstallPath>D:\SteamLibrary\steamapps\common\Derail Valley\</DVInstallPath>
+    <DVInstallPath>F:\SteamLibrary\steamapps\common\Derail Valley\</DVInstallPath>
     <FrameworkPathOverride>$(DVInstallPath)DerailValley_Data\Managed\</FrameworkPathOverride>
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>

@@ -163,12 +163,10 @@ namespace DVRouteManager
         /// <param name="consistLength"></param>
         protected async System.Threading.Tasks.Task Astar(bool allowReverse, HashSet<string> carsToIgnore, double consistLength, List<TrackTransition> bannedTransitions)
         {
-            // Snapshot the yard organizer reference on the main thread before going background.
-            // IsTrackManagedByOrganizer / GetReservedSpace read a Dictionary that only changes
-            // during job generation (main thread, infrequent) — safe to read from background.
+            // Snapshot the yard organizer reference on the main thread.
+            // Do NOT switch to background thread — RailTrack properties are accessed below
+            // and those are modified by Unity ECS on the main thread, causing race conditions.
             YardTracksOrganizer yardOrganizer = UnityEngine.Object.FindObjectOfType<YardTracksOrganizer>();
-
-            await Await.BackgroundSyncContext();
 
             cameFrom = new Dictionary<RailTrack, RailTrack>();
             costSoFar = new Dictionary<RailTrack, double>();
@@ -182,10 +180,11 @@ namespace DVRouteManager
 
             RailTrack current = null;
             
-
-            while (queue.Count > 0)
+            try
             {
-                current = queue.Dequeue().track;
+                while (queue.Count > 0)
+                {
+                    current = queue.Dequeue().track;
 
                 RailTrack prev = null;
                 cameFrom.TryGetValue(current, out prev);
@@ -321,6 +320,18 @@ namespace DVRouteManager
                         queue.Enqueue(new RailTrackNode(neighbor), priority);
                     }
                 }
+            }
+            }
+            catch (Exception ex)
+            {
+                Module.mod.Logger.Log($"[PathFinder] Astar EXCEPTION: {ex.GetType().Name}: {ex.Message}");
+                Module.mod.Logger.Log($"[PathFinder] Astar Stack trace:\n{ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Module.mod.Logger.Log($"[PathFinder] Astar Inner exception: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
+                    Module.mod.Logger.Log($"[PathFinder] Astar Inner stack trace:\n{ex.InnerException.StackTrace}");
+                }
+                throw;
             }
 
             await Await.UnitySyncContext();
