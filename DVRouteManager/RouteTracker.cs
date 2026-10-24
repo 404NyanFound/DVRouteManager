@@ -630,10 +630,19 @@ namespace DVRouteManager
                     {
                         new CommandArg() { String = "tracker" }
                     };
-                var commandtask = RouteCommand.DoCommand(args);
-                commandtask.Start();
+                Module.StartCoroutine(WaitForTrackerCommand(args));
             }
 
+        }
+
+        private IEnumerator WaitForTrackerCommand(CommandArg[] args)
+        {
+            yield return RouteCommand.DoCommand(args);
+            TakeTask();
+            if(CurrentTask == null)
+            {
+                Module.ActiveRoute.ClearRoute();
+            }
         }
 
         protected void OnTaskFinished()

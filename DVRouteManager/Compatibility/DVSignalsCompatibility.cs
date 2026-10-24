@@ -132,6 +132,70 @@ namespace DVRouteManager.Compatibility
             _activeReservation = null;
         }
 
+        public bool ReserveLookahead(Route route, RailTrack currentTrack, float lookaheadDistance)
+        {
+            if (!IsAvailable || route?.Path == null || currentTrack == null)
+                return false;
+
+            RefreshSignals();
+            int currentIndex = route.Path.IndexOf(currentTrack);
+            if (currentIndex < 0)
+                return false;
+
+            object nearestSignal = null;
+            float nearestDistance = float.PositiveInfinity;
+
+            foreach (object signal in _signals)
+            {
+                try
+                {
+                    if (ConvertToBool(Get(signal, "IsOff")))
+                        continue;
+
+                    object controller = Get(signal, "Controller");
+                    object placement = GetNullableValue(Get(controller, "PlacementInfo"));
+                    RailTrack signalTrack = Get(placement, "Track") as RailTrack;
+                    if (signalTrack == null)
+                        continue;
+
+                    int signalTrackIndex = route.Path.IndexOf(signalTrack);
+                    if (signalTrackIndex < currentIndex)
+                        continue;
+
+                    bool routeForward = GetRouteDirection(route.Path, signalTrack, signalTrackIndex);
+                    int signalDirection = ConvertToInt(Get(placement, "Direction"), -1);
+                    if (signalDirection >= 0 && signalDirection != (routeForward ? 1 : 0))
+                        continue;
+
+                    float span = ConvertToFloat(Get(placement, "Span"), 0f);
+                    float distance = DistanceAlongRoute(route.Path, currentIndex, 0f, signalTrackIndex, span, routeForward);
+                    if (distance < 0f || distance > lookaheadDistance || distance >= nearestDistance)
+                        continue;
+
+                    nearestSignal = signal;
+                    nearestDistance = Mathf.Max(0f, distance);
+                }
+                catch
+                {
+                    // Skip signals that cause errors
+                }
+            }
+
+            if (nearestSignal != null)
+            {
+                Wake(nearestSignal);
+                Reserve(nearestSignal);
+                return true;
+            }
+
+            if (_activeReservation != null)
+            {
+                ClearReservation(_activeReservation);
+            }
+
+            return false;
+        }
+
         private static void Detect()
         {
             if (_detectionAttempted)
