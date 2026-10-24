@@ -225,6 +225,12 @@ The new system mirrors the game's own `SignPlacer.GetTrackSigns` pipeline closel
 - **Turntable awareness** — stops and waits for turntable to finish rotating
 - **Competing mod safety** — disables DriverAssist and SteamCruiseControl on start
 
+### Manual Driving Enhancements
+- **Auto-switch lookahead** — automatically throws junction switches within a configurable distance as you drive manually, so you don't need AI running to benefit from automatic routing
+- **Auto-signal reservation** — when DVSignals is installed, automatically reserves signals within a configurable distance during manual driving, ensuring entry/exit signals show clear aspects before you reach them
+- Both features are toggleable with configurable lookahead distances in UMM settings
+- Only activate when AI is NOT running, so they don't conflict with autonomous AI drive
+
 ### Comms Radio UI
 - New Route / Active Route / Loco AI / Settings
 - Debug build marker shown on the Route Manager screen so live test builds can be identified in-game
@@ -242,6 +248,8 @@ The new system mirrors the game's own `SignPlacer.GetTrackSigns` pipeline closel
 | Route tracking | ✅ Working |
 | Turntable routing | ✅ Working |
 | Cruise control | ✅ Working |
+| Auto-switch lookahead | ✅ Working — flips switches within configurable distance during manual driving |
+| Auto-signal reservation | ✅ Working — reserves DVSignals within configurable distance during manual driving |
 | Freight haul AI | 🚧 Experimental — speed-limit tuning may still derail heavy trains |
 | Map markers | ✅ Working |
 | **AI speed limits** | 🚧 Light-engine testing only — freight/heavy consist tuning ongoing |
