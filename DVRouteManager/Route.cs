@@ -280,6 +280,83 @@ namespace DVRouteManager
             return false;
         }
 
+        public bool AdjustSwitchesLookahead(float lookaheadDistance, out int switchedCount)
+        {
+            switchedCount = 0;
+            if (Path == null || Path.Count == 0)
+                return false;
+
+            TrainCar loco = PlayerManager.LastLoco;
+            if (loco == null)
+                return false;
+
+            Track playerTrack = Utils.GetRouteStartTrackForLoco(loco);
+            if (playerTrack == null)
+                return false;
+
+            int startIndex = -1;
+            for (int i = 0; i < Path.Count - 1; i++)
+            {
+                if (Path[i].LogicTrack() == playerTrack)
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+
+            if (startIndex < 0)
+                return false;
+
+            HashSet<Junction> junctionsForReversing = new HashSet<Junction>();
+            double distanceTraveled = 0;
+
+            for (int i = startIndex; i < Path.Count - 1 && distanceTraveled <= lookaheadDistance; i++)
+            {
+                RailTrack walkTrack = Path[i];
+                RailTrack prevTrack = i > 0 ? Path[i - 1] : null;
+                RailTrack nextTrack = i < Path.Count - 1 ? Path[i + 1] : null;
+                
+                Junction reversingJunction = null;
+                string junctionId = GetJunctionId(prevTrack, walkTrack, nextTrack);
+                if (junctionId != null && Reverses.TryGetValue(junctionId, out Junction revJunc))
+                {
+                    reversingJunction = revJunc;
+                }
+
+                double trackLength = walkTrack.LogicTrack() != null ? walkTrack.LogicTrack().length : 0;
+                
+                if (walkTrack.inJunction != null && prevTrack != null)
+                {
+                    if (!junctionsForReversing.Contains(walkTrack.inJunction) && 
+                        SwitchJunctionIfNeeded(walkTrack, prevTrack, walkTrack.inJunction))
+                    {
+                        switchedCount++;
+                    }
+                }
+
+                if (walkTrack.outJunction != null && nextTrack != null)
+                {
+                    if (!junctionsForReversing.Contains(walkTrack.outJunction) && 
+                        SwitchJunctionIfNeeded(walkTrack, nextTrack, walkTrack.outJunction))
+                    {
+                        switchedCount++;
+                    }
+                }
+
+                if (reversingJunction != null)
+                {
+                    junctionsForReversing.Add(reversingJunction);
+                }
+
+                if (i < Path.Count - 1)
+                {
+                    distanceTraveled += trackLength;
+                }
+            }
+
+            return switchedCount > 0;
+        }
+
 
         public WalkPathData GetPrevTrack(RailTrack currentTrack, RailTrack nextTrack)
         {

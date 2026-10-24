@@ -1,4 +1,4 @@
-using CommandTerminal;
+﻿using CommandTerminal;
 using CommsRadioAPI;
 using DV;
 using DV.Logic.Job;
@@ -306,56 +306,70 @@ namespace DVRouteManager.CommsRadio
 
         private IEnumerator Compute(CommandArg[] args)
         {
+            Module.mod.Logger.Log($"[RouteManagerComputingState] Compute started, args={args?.Length ?? -1}");
             yield return null; // wait one frame
 
             System.Threading.Tasks.Task task = null;
             try
             {
+                Module.mod.Logger.Log($"[RouteManagerComputingState] Calling DoCommand...");
                 task = RouteCommand.DoCommand(args);
+                Module.mod.Logger.Log($"[RouteManagerComputingState] DoCommand returned, task={task != null}");
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                _resultMessage = e.Message;
+                Module.mod.Logger.Log($"[RouteManagerComputingState] DoCommand threw: {ex.GetType().Name}: {ex.Message}");
+                _resultMessage = ex.Message;
                 _status = ComputeStatus.Error;
                 yield break;
             }
 
-            while (!task.IsCompleted)
+            while (task != null && !task.IsCompleted)
                 yield return null;
 
-            if (task.IsFaulted)
+            if (task == null || task.IsFaulted)
             {
-                _resultMessage = task.Exception?.InnerException?.Message ?? "Route failed";
+                var ex = task?.Exception?.InnerException ?? task?.Exception;
+                _resultMessage = ex?.Message ?? "Route failed";
+                Module.mod.Logger.Log($"[RouteManagerComputingState] Task faulted: {_resultMessage}");
+                if (ex?.StackTrace != null)
+                    Module.mod.Logger.Log($"[RouteManagerComputingState] Stack trace:\n{ex.StackTrace}");
                 _status = ComputeStatus.Error;
                 yield break;
             }
 
-            if (Module.ActiveRoute.IsSet)
-            {
-                var via = Module.ActiveRoute.Route.Path
-                    .Select(p => p.LogicTrack()?.ID?.FullID ?? "")
-                    .Where(s => !string.IsNullOrEmpty(s) && !s.StartsWith("#"))
-                    .Select(s => {
-                        int idx = s.IndexOf('-');
-                        return idx > 0 ? s.Substring(0, idx) : s;
-                    })
-                    .Distinct();
-
-                _resultMessage = $"Route {(Module.ActiveRoute.Route.Length / 1000.0):0.#}km\n"
-                    + $"Heading: {Module.ActiveRoute.Route.StartHeading}\n"
-                    + $"via: {string.Join(", ", via)}";
-
-                if (Module.ActiveRoute.Route.Reverses.Count > 0)
-                    _resultMessage += $"\nReverses: {Module.ActiveRoute.Route.Reverses.Count}";
-            }
-            else
+            Module.mod.Logger.Log($"[RouteManagerComputingState] Task completed, checking route...");
+            // If we get here, DoCommand completed without throwing
+            // Check if route was actually set (route may not exist)
+            if (!Module.ActiveRoute.IsSet)
             {
                 _resultMessage = "Route not found";
+                Module.mod.Logger.Log($"[RouteManagerComputingState] Route not set");
                 _status = ComputeStatus.Error;
                 yield break;
             }
 
+            var route = Module.ActiveRoute.Route;
+            Module.mod.Logger.Log($"[RouteManagerComputingState] Route.Path.Count={route?.Path?.Count ?? -1}");
+
+            var via = route.Path
+                .Select(p => p.LogicTrack()?.ID?.FullID ?? "")
+                .Where(s => !string.IsNullOrEmpty(s) && !s.StartsWith("#"))
+                .Select(s => {
+                    int idx = s.IndexOf('-');
+                    return idx > 0 ? s.Substring(0, idx) : s;
+                })
+                .Distinct();
+
+            _resultMessage = $"Route {(Module.ActiveRoute.Route.Length / 1000.0):0.#}km\n"
+                + $"Heading: {Module.ActiveRoute.Route.StartHeading}\n"
+                + $"via: {string.Join(", ", via)}";
+
+            if (Module.ActiveRoute.Route.Reverses.Count > 0)
+                _resultMessage += $"\nReverses: {Module.ActiveRoute.Route.Reverses.Count}";
+
             _status = ComputeStatus.Done;
+            Module.mod.Logger.Log($"[RouteManagerComputingState] Success! Status=Done, message={_resultMessage.Substring(0, Mathf.Min(50, _resultMessage.Length))}...");
         }
 
         public override AStateBehaviour OnUpdate(CommsRadioUtility utility)
@@ -544,9 +558,15 @@ namespace DVRouteManager.CommsRadio
                 Module.ActiveRoute.RouteTracker = tracker;
             }
 
-            newRoute.AdjustSwitches();
-
-            _message = $"Flipped {(newRoute.Length / 1000.0):0.#}km\nHeading: {newRoute.StartHeading}";
+            if (!Module.settings.EnableAutoSwitch)
+            {
+                newRoute.AdjustSwitches();
+                _message = $"Flipped {(newRoute.Length / 1000.0):0.#}km\nHeading: {newRoute.StartHeading}";
+            }
+            else
+            {
+                _message = $"Route set {(newRoute.Length / 1000.0):0.#}km\nHeading: {newRoute.StartHeading}\nAuto-switch enabled";
+            }
             _status = FlipStatus.Done;
         }
 
@@ -1160,3 +1180,4 @@ namespace DVRouteManager.CommsRadio
         }
     }
 }
+

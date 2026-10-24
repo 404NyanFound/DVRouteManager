@@ -53,7 +53,7 @@ namespace DVRouteManager
                 Terminal.Log($"{exc.Message} {exc.InnerException} {exc.StackTrace}");
             }
         }
-        public async static System.Threading.Tasks.Task DoCommand(CommandArg[] args)
+        public static async System.Threading.Tasks.Task DoCommand(CommandArg[] args)
         {
             if(args.Length == 0)
             {
@@ -233,7 +233,10 @@ namespace DVRouteManager
                 {
 
                     Module.ActiveRoute.Route = route;
-                    route.AdjustSwitches();
+                    if (!Module.settings.EnableAutoSwitch)
+                    {
+                        route.AdjustSwitches();
+                    }
 
                     Module.ActiveRoute.RouteTracker.SetRoute(route, route.Trainset);
 
@@ -348,7 +351,10 @@ namespace DVRouteManager
                 }
 
                 Module.ActiveRoute.Route = route;
-                route.AdjustSwitches();
+                if (!Module.settings.EnableAutoSwitch)
+                {
+                    route.AdjustSwitches();
+                }
 
                 RouteTaskChain chain = RouteTaskChain.FromDestination(destTrack, trainCar.trainset);
                 var tracker = new RouteTracker(chain, false);
@@ -386,7 +392,10 @@ namespace DVRouteManager
             else
             {
                 Module.ActiveRoute.Route = route;
-                route.AdjustSwitches();
+                if (!Module.settings.EnableAutoSwitch)
+                {
+                    route.AdjustSwitches();
+                }
             }
         }
 
