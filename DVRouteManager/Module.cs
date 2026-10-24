@@ -4,6 +4,7 @@ using DV;
 using DV.Logic.Job;
 using DV.Simulation.Cars;
 using DVRouteManager.CommsRadio;
+using DVRouteManager.Extensions;
 using HarmonyLib;
 using SimpleJson;
 using System;
@@ -184,6 +185,21 @@ namespace DVRouteManager
                     settings.ReversingStrategy = strategy;
             }
 
+            GUILayout.Space(10f);
+            GUILayout.Label("Auto Switch:");
+            settings.EnableAutoSwitch = GUILayout.Toggle(settings.EnableAutoSwitch, "Enable automatic switch flipping");
+            GUILayout.Label("Automatically flips switches as you approach them based on your active route.");
+            settings.AutoSwitchLookaheadDistance = GUILayout.HorizontalSlider(settings.AutoSwitchLookaheadDistance, 50f, 1000f, GUILayout.Width(200f));
+            GUILayout.Label($"Lookahead distance: {settings.AutoSwitchLookaheadDistance:0}m");
+            
+            GUILayout.Space(10f);
+            GUILayout.Label("Auto Signal:");
+            settings.EnableAutoSignal = GUILayout.Toggle(settings.EnableAutoSignal, "Enable automatic signal reservation");
+            GUILayout.Label("Automatically reserves signals as you approach them based on your active route.");
+            GUILayout.Label("Requires DVSignals mod to be installed.");
+            settings.AutoSignalLookaheadDistance = GUILayout.HorizontalSlider(settings.AutoSignalLookaheadDistance, 200f, 2000f, GUILayout.Width(200f));
+            GUILayout.Label($"Lookahead distance: {settings.AutoSignalLookaheadDistance:0}m");
+            
             GUILayout.Space(10f);
             GUILayout.Label("Experimental:");
             settings.EnableExperimentalMultiUnitAI = GUILayout.Toggle(
@@ -379,6 +395,8 @@ namespace DVRouteManager
             Module.ActiveRoute?.ClearRoute();
         }
 
+        private static DVRouteManager.Compatibility.DVSignalsCompatibility _autoSignalCompatibility;
+        
         private static void OnUpdate(ModEntry arg1, float arg2)
         {
             if (Module.ActiveRoute.IsSet && Module.ActiveRoute.RouteTracker != null && Module.settings.TrainEndAlarm.Down())
@@ -386,6 +404,68 @@ namespace DVRouteManager
                 Module.ActiveRoute.RouteTracker.NotifyTrainEnd();
             }
 
+            if (Module.ActiveRoute.IsSet && Module.ActiveRoute.Route != null)
+            {
+                bool isAiRunning = false;
+                if (PlayerManager.LastLoco != null)
+                {
+                    var ai = PlayerManager.LastLoco.GetComponentInChildren<LocoAI>();
+                    isAiRunning = ai?.IsRunning == true;
+                }
+
+                if (!isAiRunning)
+                {
+                    try
+                    {
+                        int switched = 0;
+                        Module.ActiveRoute.Route.AdjustSwitchesLookahead(Module.settings.AutoSwitchLookaheadDistance, out switched);
+                        if (switched > 0)
+                        {
+                            mod.Logger.Log($"[AutoSwitch] Flipped {switched} switch(es) within {Module.settings.AutoSwitchLookaheadDistance}m lookahead");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        mod.Logger.Log($"[AutoSwitch] Error: {ex.Message}");
+                    }
+
+                    if (Module.settings.EnableAutoSignal)
+                    {
+                        try
+                        {
+                            if (_autoSignalCompatibility == null)
+                            {
+                                _autoSignalCompatibility = new DVRouteManager.Compatibility.DVSignalsCompatibility();
+                            }
+
+                            TrainCar loco = PlayerManager.LastLoco;
+                            if (loco != null)
+                            {
+                                Track playerTrack = Utils.GetRouteStartTrackForLoco(loco);
+                                if (playerTrack != null)
+                                {
+                                    RailTrack currentRailTrack = RailTrackRegistryBase.RailTracks.FirstOrDefault(r => r?.LogicTrack()?.ID?.FullID == playerTrack.ID.FullID);
+                                    if (currentRailTrack != null)
+                                    {
+                                        bool reserved = _autoSignalCompatibility.ReserveLookahead(
+                                            Module.ActiveRoute.Route,
+                                            currentRailTrack,
+                                            Module.settings.AutoSignalLookaheadDistance);
+                                        if (reserved)
+                                        {
+                                            mod.Logger.Log($"[AutoSignal] Reserved signal within {Module.settings.AutoSignalLookaheadDistance}m lookahead");
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            mod.Logger.Log($"[AutoSignal] Error: {ex.Message}");
+                        }
+                    }
+                }
+            }
         }
 
 

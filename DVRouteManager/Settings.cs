@@ -12,6 +12,12 @@ namespace DVRouteManager
     {
         [Header("Routing")]
         public ReversingStrategy ReversingStrategy = ReversingStrategy.ChooseBest;
+        [Header("Auto Switch")]
+        public bool EnableAutoSwitch = true;
+        public float AutoSwitchLookaheadDistance = 200f;
+        [Header("Auto Signal")]
+        public bool EnableAutoSignal = false;
+        public float AutoSignalLookaheadDistance = 1000f;
         [Header("Experimental")]
         public bool EnableExperimentalMultiUnitAI = false;
         [Header("Keys")]
